@@ -160,3 +160,17 @@ Employee.prototype.comparePassword = async function(candidatePassword) {
 };
 
 module.exports = Employee;
+
+// At the bottom of Employee.js, add:
+const Attendance = require('./Attendance');
+
+// Define relationship
+Employee.hasMany(Attendance, {
+  foreignKey: 'employeeId',
+  as: 'attendances'
+});
+
+Attendance.belongsTo(Employee, {
+  foreignKey: 'employeeId',
+  as: 'employee'
+});
