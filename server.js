@@ -6,11 +6,12 @@ const { sequelize, testConnection } = require('./config/database');
 const Employee = require('./models/Employee');
 const employeeRoutes = require('./routes/employeeRoutes');
 
-// Add with other requires
+
 const uploadRoutes = require('./routes/uploadRoutes');
 
 const attendanceRoutes = require('./routes/attendanceRoutes');
 
+const leaveRoutes = require('./routes/leaveRoutes');
 
 
 const app = express();
@@ -26,6 +27,8 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/upload', uploadRoutes);
 
 app.use('/api/attendance', attendanceRoutes);
+
+app.use('/api/leave', leaveRoutes);
 
 // Test route
 app.get('/', (req, res) => {
