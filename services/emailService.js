@@ -1,20 +1,17 @@
 const nodemailer = require('nodemailer');
 
-
+// Create transporter
 const createTransporter = () => {
-
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
-      user: process.env.EMAIL_USER,     
-      pass: process.env.EMAIL_PASS       
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
     }
   });
-  
-
 };
 
-// Send welcome email with credentials
+// Send welcome email to new employee
 const sendWelcomeEmail = async (employee, temporaryPassword) => {
   try {
     const transporter = createTransporter();
@@ -48,7 +45,7 @@ const sendWelcomeEmail = async (employee, temporaryPassword) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Welcome email sent to ${employee.email}: ${info.messageId}`);
+    console.log(`✅ Welcome email sent to ${employee.email}`);
     return { success: true, info };
     
   } catch (error) {
@@ -57,9 +54,7 @@ const sendWelcomeEmail = async (employee, temporaryPassword) => {
   }
 };
 
-module.exports = { sendWelcomeEmail };
-
-// Send leave status notification email
+// Send leave status email to employee (approved/rejected)
 const sendLeaveStatusEmail = async (employeeEmail, employeeName, leaveDetails) => {
   try {
     const transporter = createTransporter();
@@ -110,14 +105,19 @@ const sendLeaveStatusEmail = async (employeeEmail, employeeName, leaveDetails) =
   }
 };
 
-// Also add function for when employee submits leave request (optional)
+// ✅ ADD THIS NEW FUNCTION - Send notification to admin when employee requests leave
 const sendLeaveRequestEmail = async (adminEmail, employeeName, leaveDetails) => {
   try {
     const transporter = createTransporter();
     
+    // Check if document was uploaded
+    const documentInfo = leaveDetails.documentUrl 
+      ? `<p><strong>Document:</strong> <a href="${leaveDetails.documentUrl}">View Attachment</a></p>`
+      : '<p><strong>Document:</strong> No document uploaded</p>';
+
     const mailOptions = {
       from: `"Employee Management System" <${process.env.EMAIL_USER}>`,
-      to: adminEmail, // Send to admin
+      to: adminEmail,
       subject: `New Leave Request from ${employeeName}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -130,6 +130,7 @@ const sendLeaveRequestEmail = async (adminEmail, employeeName, leaveDetails) => 
             <p><strong>Start Date:</strong> ${leaveDetails.startDate}</p>
             <p><strong>End Date:</strong> ${leaveDetails.endDate}</p>
             <p><strong>Reason:</strong> ${leaveDetails.reason || 'Not provided'}</p>
+            ${documentInfo}
           </div>
           
           <p>Please review and respond to this request.</p>
@@ -153,9 +154,9 @@ const sendLeaveRequestEmail = async (adminEmail, employeeName, leaveDetails) => 
   }
 };
 
-// Don't forget to export the new functions
+// ✅ EXPORT ALL THREE FUNCTIONS
 module.exports = { 
-  sendWelcomeEmail, 
+  sendWelcomeEmail,
   sendLeaveStatusEmail,
-  sendLeaveRequestEmail 
+  sendLeaveRequestEmail
 };

@@ -31,6 +31,16 @@ const LeaveRequest = sequelize.define('LeaveRequest', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  // ✅ NEW: Supporting document URL
+  documentUrl: {
+    type: DataTypes.STRING(500),
+    allowNull: true
+  },
+  // ✅ NEW: Original filename
+  documentName: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
   status: {
     type: DataTypes.ENUM('pending', 'approved', 'rejected'),
     defaultValue: 'pending'

@@ -76,18 +76,20 @@ const requestLeave = async (req, res) => {
       console.log(`✅ Admin notified about leave request from ${employee.name}`);
     }
 
-    res.status(201).json({
-      message: 'Leave request submitted successfully',
-      leaveRequest: {
-        id: leaveRequest.id,
-        leaveType,
-        startDate,
-        endDate,
-        reason,
-        status: 'pending',
-        employee: employee
-      }
-    });
+   res.status(201).json({
+  message: 'Leave request submitted successfully',
+  leaveRequest: {
+    id: leaveRequest.id,
+    leaveType,
+    startDate,
+    endDate,
+    reason,
+    status: 'pending',
+    documentUrl: leaveRequest.documentUrl,  // ✅ Added
+    documentName: leaveRequest.documentName, // ✅ Added
+    employee: employee
+  }
+});
 
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

@@ -13,6 +13,8 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 
 const leaveRoutes = require('./routes/leaveRoutes');
 
+const reportRoutes = require('./routes/reportRoutes');
+
 
 const app = express();
 
@@ -29,6 +31,8 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/attendance', attendanceRoutes);
 
 app.use('/api/leave', leaveRoutes);
+
+app.use('/api/reports', reportRoutes);
 
 // Test route
 app.get('/', (req, res) => {
