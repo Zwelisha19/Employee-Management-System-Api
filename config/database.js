@@ -1,6 +1,7 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
+// Create Sequelize instance directly
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
@@ -8,15 +9,21 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
-    dialect: 'mysql',  
+    dialect: 'mysql',
+    dialectModule: require('mysql2'),
     logging: false,
+    dialectOptions: {
+      ssl: {
+        rejectUnauthorized: true
+      }
+    }
   }
 );
 
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ MySQL Database connected successfully');
+    console.log('✅ TiDB Cloud connected successfully');
   } catch (error) {
     console.error('❌ Unable to connect to database:', error);
   }
