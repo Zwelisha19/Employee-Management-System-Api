@@ -1,9 +1,11 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter
+// Create transporter with port 465 (SSL)
 const createTransporter = () => {
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // true for port 465
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
@@ -49,7 +51,7 @@ const sendWelcomeEmail = async (employee, temporaryPassword) => {
     return { success: true, info };
     
   } catch (error) {
-    console.error('❌ Error sending email:', error);
+    console.error('❌ Error sending welcome email:', error);
     return { success: false, error: error.message };
   }
 };
@@ -79,7 +81,7 @@ const sendLeaveStatusEmail = async (employeeEmail, employeeName, leaveDetails) =
             <p><strong>Start Date:</strong> ${leaveDetails.startDate}</p>
             <p><strong>End Date:</strong> ${leaveDetails.endDate}</p>
             <p><strong>Status:</strong> <span style="color: ${statusColor};">${leaveDetails.status.toUpperCase()}</span></p>
-            <p><strong>Comments:</strong> ${leaveDetails.comments}</p>
+            <p><strong>Comments:</strong> ${leaveDetails.comments || 'No comments'}</p>
           </div>
           
           ${leaveDetails.status === 'approved' 
@@ -105,7 +107,7 @@ const sendLeaveStatusEmail = async (employeeEmail, employeeName, leaveDetails) =
   }
 };
 
-// ✅ ADD THIS NEW FUNCTION - Send notification to admin when employee requests leave
+// Send notification to admin when employee requests leave
 const sendLeaveRequestEmail = async (adminEmail, employeeName, leaveDetails) => {
   try {
     const transporter = createTransporter();
@@ -154,7 +156,6 @@ const sendLeaveRequestEmail = async (adminEmail, employeeName, leaveDetails) => 
   }
 };
 
-// ✅ EXPORT ALL THREE FUNCTIONS
 module.exports = { 
   sendWelcomeEmail,
   sendLeaveStatusEmail,
