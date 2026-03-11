@@ -1,7 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
-const { registerEmployee, loginEmployee, getMe } = require('../controllers/EmpController');
+const { 
+  registerEmployee, 
+  loginEmployee, 
+  getMe,
+  updateEmployee,    // ✅ Import the new controller functions
+  updatePassword     // ✅ Import the new controller functions
+} = require('../controllers/EmpController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 // Public routes
@@ -47,36 +53,11 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
-// Update employee
-router.put('/:id', protect, async (req, res) => {
-  try {
-    const employee = await Employee.findByPk(req.params.id);
-    
-    if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
-    }
-    
-    // Employees can only update themselves, admins can update anyone
-    if (req.employee.role !== 'admin' && req.employee.id !== parseInt(req.params.id)) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-    
-    await employee.update(req.body);
-    
-    res.json({
-      id: employee.id,
-      name: employee.name,
-      email: employee.email,
-      role: employee.role,
-      position: employee.position,
-      department: employee.department,
-      phone: employee.phone,
-      status: employee.status
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+// ✅ UPDATED: Update employee (using controller function)
+router.put('/:id', protect, updateEmployee);
+
+// ✅ NEW: Update password route
+router.put('/:id/password', protect, updatePassword);
 
 // Delete employee (admin only)
 router.delete('/:id', protect, admin, async (req, res) => {

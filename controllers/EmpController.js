@@ -1,5 +1,6 @@
 const Employee = require('../models/Employee');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { sendWelcomeEmail } = require('../services/emailService');
 
 // Generate JWT Token
@@ -111,4 +112,102 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { registerEmployee, loginEmployee, getMe };
+// ✅ NEW: Update employee (Admin or Self)
+// @route   PUT /api/employees/:id
+const updateEmployee = async (req, res) => {
+  try {
+    const employeeId = req.params.id;
+    const { name, phone, position, department, role, status } = req.body;
+    
+    // Find employee
+    const employee = await Employee.findByPk(employeeId);
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Check permission: Admin can update anyone, Employees can only update themselves
+    if (req.employee.role !== 'admin' && req.employee.id !== parseInt(employeeId)) {
+      return res.status(403).json({ message: 'Not authorized to update this employee' });
+    }
+
+    // Employees cannot change their own role, department, or status
+    if (req.employee.role === 'employee') {
+      // Only allow updating name and phone for employees
+      employee.name = name || employee.name;
+      employee.phone = phone || employee.phone;
+    } else {
+      // Admin can update everything
+      employee.name = name || employee.name;
+      employee.phone = phone || employee.phone;
+      employee.position = position || employee.position;
+      employee.department = department || employee.department;
+      employee.role = role || employee.role;
+      employee.status = status || employee.status;
+    }
+
+    await employee.save();
+
+    res.json({
+      id: employee.id,
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      position: employee.position,
+      department: employee.department,
+      role: employee.role,
+      status: employee.status,
+      message: 'Profile updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// ✅ NEW: Update password (Admin or Self)
+// @route   PUT /api/employees/:id/password
+const updatePassword = async (req, res) => {
+  try {
+    const employeeId = req.params.id;
+    const { currentPassword, newPassword } = req.body;
+
+    // Find employee
+    const employee = await Employee.findByPk(employeeId);
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Check permission: Admin can update anyone's password, Employees can only update their own
+    if (req.employee.role !== 'admin' && req.employee.id !== parseInt(employeeId)) {
+      return res.status(403).json({ message: 'Not authorized to update password' });
+    }
+
+    // If it's an employee changing their own password, verify current password
+    if (req.employee.id === parseInt(employeeId)) {
+      const isPasswordMatch = await employee.comparePassword(currentPassword);
+      if (!isPasswordMatch) {
+        return res.status(401).json({ message: 'Current password is incorrect' });
+      }
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    employee.password = await bcrypt.hash(newPassword, salt);
+    await employee.save();
+
+    res.json({ message: 'Password updated successfully' });
+
+  } catch (error) {
+    console.error('Error updating password:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+module.exports = { 
+  registerEmployee, 
+  loginEmployee, 
+  getMe,
+  updateEmployee,  // ✅ Added
+  updatePassword   // ✅ Added
+};
