@@ -154,9 +154,33 @@ const Employee = sequelize.define('Employee', {
   }
 });
 
-// Instance method to check password
+// Instance method to check password - WITH DETAILED LOGGING
 Employee.prototype.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+  try {
+    console.log('🔐 comparePassword called for:', this.email);
+    console.log('📝 Candidate password provided:', candidatePassword ? 'Yes' : 'No');
+    console.log('💾 Stored hash exists:', !!this.password);
+    
+    if (!this.password) {
+      console.error('❌ No password stored for user:', this.email);
+      return false;
+    }
+    
+    if (!candidatePassword) {
+      console.error('❌ No candidate password provided');
+      return false;
+    }
+    
+    const bcrypt = require('bcryptjs');
+    console.log('🔄 Comparing passwords...');
+    const isMatch = await bcrypt.compare(candidatePassword, this.password);
+    console.log('📊 Comparison result:', isMatch ? '✅ MATCH' : '❌ NO MATCH');
+    return isMatch;
+    
+  } catch (error) {
+    console.error('❌ Error comparing passwords:', error);
+    return false;
+  }
 };
 
 module.exports = Employee;

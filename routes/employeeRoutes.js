@@ -53,6 +53,29 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
+// TEMPORARY DEBUG ROUTE - Remove after testing
+router.get('/debug/password/:id', protect, admin, async (req, res) => {
+  try {
+    const employee = await Employee.findByPk(req.params.id);
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    
+    // Check if password exists and its length
+    const passwordInfo = {
+      id: employee.id,
+      email: employee.email,
+      hasPassword: !!employee.password,
+      passwordLength: employee.password ? employee.password.length : 0,
+      passwordStartsWith: employee.password ? employee.password.substring(0, 10) + '...' : null
+    };
+    
+    res.json(passwordInfo);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ✅ UPDATED: Update employee (using controller function)
 router.put('/:id', protect, updateEmployee);
 
