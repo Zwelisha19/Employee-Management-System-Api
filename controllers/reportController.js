@@ -4,24 +4,41 @@ const LeaveRequest = require('../models/LeaveRequest');
 const { Op } = require('sequelize');
 const sequelize = require('sequelize');
 
-// @desc    Get today's attendance summary
+// @desc    Get today's attendance summary - UPDATED
 // @route   GET /api/reports/today
 const getTodayReport = async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    // Get total employees (active)
+    // Get total active employees (EXCLUDING ADMINS)
     const totalEmployees = await Employee.count({
-      where: { status: 'active' }
+      where: { 
+        status: 'active',
+        role: 'employee'  // ← Only count employees, not admins
+      }
     });
 
-    // Get today's attendance
+    // Get today's attendance for employees only
     const todayAttendance = await Attendance.findAll({
       where: { date: today },
       include: [{
         model: Employee,
         as: 'employee',
+        where: { role: 'employee' },  // ← Only include employees
         attributes: ['id', 'name', 'department']
+      }]
+    });
+
+    // Get employees on approved leave today (employees only)
+    const onLeave = await LeaveRequest.count({
+      where: {
+        status: 'approved',
+        startDate: { [Op.lte]: today },
+        endDate: { [Op.gte]: today }
+      },
+      include: [{
+        model: Employee,
+        where: { role: 'employee' }  // ← Only employees on leave
       }]
     });
 
@@ -29,25 +46,18 @@ const getTodayReport = async (req, res) => {
     const checkedIn = todayAttendance.length;
     const late = todayAttendance.filter(a => a.status === 'late').length;
     const present = todayAttendance.filter(a => a.status === 'present').length;
-    const absent = totalEmployees - checkedIn;
-
-    // Get employees on leave today
-    const onLeave = await LeaveRequest.count({
-      where: {
-        status: 'approved',
-        startDate: { [Op.lte]: today },
-        endDate: { [Op.gte]: today }
-      }
-    });
+    
+    // FIXED: Absent = totalEmployees - (checkedIn + onLeave)
+    const absent = totalEmployees - (checkedIn + onLeave);
 
     res.json({
       date: today,
       summary: {
-        totalEmployees,
+        totalEmployees,  // Now only employees (no admins)
         checkedIn,
         present,
         late,
-        absent,
+        absent,  // Now correctly calculated
         onLeave
       },
       details: todayAttendance.map(a => ({
@@ -59,11 +69,12 @@ const getTodayReport = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Error in getTodayReport:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// @desc    Get monthly attendance report
+// @desc    Get monthly attendance report - UPDATED
 // @route   GET /api/reports/monthly
 const getMonthlyReport = async (req, res) => {
   try {
@@ -76,19 +87,26 @@ const getMonthlyReport = async (req, res) => {
     const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
     const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${lastDay}`;
 
-    // Get all active employees
+    // Get all active employees (EXCLUDING ADMINS)
     const employees = await Employee.findAll({
-      where: { status: 'active' },
+      where: { 
+        status: 'active',
+        role: 'employee'  // ← Only employees
+      },
       attributes: ['id', 'name', 'department']
     });
 
-    // Get attendance for the month
+    // Get attendance for the month (employees only)
     const attendance = await Attendance.findAll({
       where: {
         date: {
           [Op.between]: [startDate, endDate]
         }
-      }
+      },
+      include: [{
+        model: Employee,
+        where: { role: 'employee' }  // ← Only employees
+      }]
     });
 
     // Calculate stats per employee
@@ -130,7 +148,7 @@ const getMonthlyReport = async (req, res) => {
       month: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`,
       workingDays: lastDay,
       summary: {
-        totalEmployees: employees.length,
+        totalEmployees: employees.length,  // Now only employees
         totalPresent: attendance.filter(a => a.status === 'present').length,
         totalLate: attendance.filter(a => a.status === 'late').length,
         averageAttendance: (attendance.length / (employees.length * lastDay) * 100).toFixed(1) + '%'
@@ -140,11 +158,12 @@ const getMonthlyReport = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Error in getMonthlyReport:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// @desc    Get leave summary report
+// @desc    Get leave summary report - UPDATED
 // @route   GET /api/reports/leaves
 const getLeaveReport = async (req, res) => {
   try {
@@ -153,12 +172,13 @@ const getLeaveReport = async (req, res) => {
     
     if (status) whereClause.status = status;
 
-    // Get all leave requests with employee details
+    // Get all leave requests with employee details (employees only)
     const leaves = await LeaveRequest.findAll({
       where: whereClause,
       include: [{
         model: Employee,
         as: 'employee',
+        where: { role: 'employee' },  // ← Only employees
         attributes: ['id', 'name', 'department']
       }],
       order: [['createdAt', 'DESC']]
@@ -210,17 +230,21 @@ const getLeaveReport = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Error in getLeaveReport:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// @desc    Get department overview
+// @desc    Get department overview - UPDATED
 // @route   GET /api/reports/departments
 const getDepartmentReport = async (req, res) => {
   try {
-    // Get all employees grouped by department
+    // Get all employees grouped by department (EXCLUDING ADMINS)
     const employees = await Employee.findAll({
-      where: { status: 'active' },
+      where: { 
+        status: 'active',
+        role: 'employee'  // ← Only employees
+      },
       attributes: [
         'department',
         [sequelize.fn('COUNT', sequelize.col('department')), 'count']
@@ -228,16 +252,20 @@ const getDepartmentReport = async (req, res) => {
       group: ['department']
     });
 
-    // Get today's attendance by department
+    // Get today's attendance by department (employees only)
     const today = new Date().toISOString().split('T')[0];
     
     const departmentDetails = await Promise.all(
       employees.map(async (dept) => {
         const department = dept.department;
         
-        // Employees in this department
+        // Employees in this department (employees only)
         const deptEmployees = await Employee.findAll({
-          where: { department, status: 'active' }
+          where: { 
+            department, 
+            status: 'active',
+            role: 'employee'  // ← Only employees
+          }
         });
 
         // Today's attendance for this department
@@ -274,6 +302,7 @@ const getDepartmentReport = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Error in getDepartmentReport:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

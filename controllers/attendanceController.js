@@ -165,36 +165,67 @@ const getAllAttendance = async (req, res) => {
   }
 };
 
-// @desc    Get Today's Attendance (Admin view)
+// @desc    Get Today's Attendance (Admin view) - UPDATED
 // @route   GET /api/attendance/today
 const getTodayAttendance = async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     
+    // Get today's attendance for employees only
     const attendance = await Attendance.findAll({
       where: { date: today },
       include: [{
         model: Employee,
         as: 'employee',
+        where: { role: 'employee' },  // ← ONLY EMPLOYEES, NO ADMINS
         attributes: ['id', 'name', 'department', 'position']
       }]
     });
 
-    const totalEmployees = await Employee.count();
+    // Get total employees (excluding admins)
+    const totalEmployees = await Employee.count({
+      where: { 
+        role: 'employee',
+        status: 'active' 
+      }
+    });
+
+    // Get employees on approved leave today
+    const LeaveRequest = require('./LeaveRequest'); // Import at top if needed
+    const onLeaveToday = await LeaveRequest.count({
+      where: {
+        status: 'approved',
+        startDate: { [Op.lte]: today },
+        endDate: { [Op.gte]: today }
+      },
+      include: [{
+        model: Employee,
+        where: { role: 'employee' }  // ← ONLY EMPLOYEES ON LEAVE
+      }]
+    });
+
     const checkedIn = attendance.length;
+    const late = attendance.filter(a => a.status === 'late').length;
+    const present = attendance.filter(a => a.status === 'present').length;
+    
+    // Absent = totalEmployees - (checkedIn + onLeaveToday)
+    const absent = totalEmployees - (checkedIn + onLeaveToday);
 
     res.json({
       date: today,
       summary: {
-        totalEmployees,
+        totalEmployees,  // Now only counts employees (no admins)
         checkedIn,
-        notCheckedIn: totalEmployees - checkedIn,
-        late: attendance.filter(a => a.status === 'late').length
+        present,
+        late,
+        onLeave: onLeaveToday,
+        absent  // Now correctly calculated
       },
       attendance
     });
 
   } catch (error) {
+    console.error('Error in getTodayAttendance:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
