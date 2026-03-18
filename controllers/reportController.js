@@ -4,7 +4,7 @@ const LeaveRequest = require('../models/LeaveRequest');
 const { Op } = require('sequelize');
 const sequelize = require('sequelize');
 
-// @desc    Get today's attendance summary - UPDATED
+
 // @route   GET /api/reports/today
 const getTodayReport = async (req, res) => {
   try {
@@ -14,7 +14,7 @@ const getTodayReport = async (req, res) => {
     const totalEmployees = await Employee.count({
       where: { 
         status: 'active',
-        role: 'employee'  // ← Only count employees, not admins
+        role: 'employee'
       }
     });
 
@@ -24,22 +24,31 @@ const getTodayReport = async (req, res) => {
       include: [{
         model: Employee,
         as: 'employee',
-        where: { role: 'employee' },  // ← Only include employees
+        where: { role: 'employee' },
         attributes: ['id', 'name', 'department']
       }]
     });
 
-    // Get employees on approved leave today (employees only)
-    const onLeave = await LeaveRequest.count({
+    // FIXED: Get employees on approved leave today - WITHOUT include
+    // Instead, first get the employee IDs, then count
+    const employeesOnLeave = await LeaveRequest.findAll({
       where: {
         status: 'approved',
         startDate: { [Op.lte]: today },
         endDate: { [Op.gte]: today }
       },
-      include: [{
-        model: Employee,
-        where: { role: 'employee' }  // ← Only employees on leave
-      }]
+      attributes: ['employeeId']
+    });
+
+    // Get unique employee IDs
+    const uniqueEmployeeIds = [...new Set(employeesOnLeave.map(l => l.employeeId))];
+    
+    // Now count how many of these are employees (not admins)
+    const onLeave = await Employee.count({
+      where: {
+        id: uniqueEmployeeIds,
+        role: 'employee'
+      }
     });
 
     // Calculate stats
@@ -47,17 +56,17 @@ const getTodayReport = async (req, res) => {
     const late = todayAttendance.filter(a => a.status === 'late').length;
     const present = todayAttendance.filter(a => a.status === 'present').length;
     
-    // FIXED: Absent = totalEmployees - (checkedIn + onLeave)
+    // Absent = totalEmployees - (checkedIn + onLeave)
     const absent = totalEmployees - (checkedIn + onLeave);
 
     res.json({
       date: today,
       summary: {
-        totalEmployees,  // Now only employees (no admins)
+        totalEmployees,
         checkedIn,
         present,
         late,
-        absent,  // Now correctly calculated
+        absent,
         onLeave
       },
       details: todayAttendance.map(a => ({
