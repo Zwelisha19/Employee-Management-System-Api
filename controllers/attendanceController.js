@@ -10,6 +10,15 @@ const checkIn = async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
 
+    // ✅ ADDED: Block check-in outside 7:00 AM - 9:00 AM
+    const currentHour = new Date().getHours();
+    const currentMinute = new Date().getMinutes();
+    if (currentHour < 7 || currentHour >= 9) {
+      return res.status(400).json({ 
+        message: 'Check-in is only allowed between 7:00 AM and 9:00 AM' 
+      });
+    }
+
     // Check if already checked in today
     const existingAttendance = await Attendance.findOne({
       where: {
@@ -25,9 +34,8 @@ const checkIn = async (req, res) => {
       });
     }
 
-    // Determine status (late if after 9:00 AM)
-    const checkInTime = currentTime;
-    const status = checkInTime > '09:00:00' ? 'late' : 'present';
+    // Late if after 8:30 AM
+    const status = (currentHour === 8 && currentMinute > 30) ? 'late' : 'present';
 
     // Create attendance record
     const attendance = await Attendance.create({
@@ -58,6 +66,14 @@ const checkOut = async (req, res) => {
     const employeeId = req.employee.id;
     const today = new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
+
+    // ✅ ADDED: Block check-out before 5:00 PM
+    const currentHour = new Date().getHours();
+    if (currentHour < 17) {
+      return res.status(400).json({ 
+        message: 'Check-out is only allowed from 5:00 PM onwards' 
+      });
+    }
 
     // Find today's attendance
     const attendance = await Attendance.findOne({
@@ -105,7 +121,6 @@ const getMyAttendance = async (req, res) => {
 
     let whereClause = { employeeId };
 
-    // Filter by month/year if provided
     if (month && year) {
       const startDate = `${year}-${month.padStart(2, '0')}-01`;
       const endDate = new Date(year, month, 0).toISOString().split('T')[0];
@@ -120,7 +135,6 @@ const getMyAttendance = async (req, res) => {
       order: [['date', 'DESC']]
     });
 
-    // Calculate summary
     const summary = {
       total: attendance.length,
       present: attendance.filter(a => a.status === 'present').length,
@@ -142,7 +156,6 @@ const getAllAttendance = async (req, res) => {
     const { date, department } = req.query;
     let whereClause = {};
 
-    // Filter by date
     if (date) {
       whereClause.date = date;
     }
@@ -165,24 +178,22 @@ const getAllAttendance = async (req, res) => {
   }
 };
 
-// @desc    Get Today's Attendance (Admin view) - UPDATED
+// @desc    Get Today's Attendance (Admin view)
 // @route   GET /api/attendance/today
 const getTodayAttendance = async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    // Get today's attendance for employees only
     const attendance = await Attendance.findAll({
       where: { date: today },
       include: [{
         model: Employee,
         as: 'employee',
-        where: { role: 'employee' },  // ← ONLY EMPLOYEES, NO ADMINS
+        where: { role: 'employee' },
         attributes: ['id', 'name', 'department', 'position']
       }]
     });
 
-    // Get total employees (excluding admins)
     const totalEmployees = await Employee.count({
       where: { 
         role: 'employee',
@@ -190,8 +201,7 @@ const getTodayAttendance = async (req, res) => {
       }
     });
 
-    // Get employees on approved leave today
-    const LeaveRequest = require('./LeaveRequest'); // Import at top if needed
+    const LeaveRequest = require('./LeaveRequest');
     const onLeaveToday = await LeaveRequest.count({
       where: {
         status: 'approved',
@@ -200,26 +210,24 @@ const getTodayAttendance = async (req, res) => {
       },
       include: [{
         model: Employee,
-        where: { role: 'employee' }  // ← ONLY EMPLOYEES ON LEAVE
+        where: { role: 'employee' }
       }]
     });
 
     const checkedIn = attendance.length;
     const late = attendance.filter(a => a.status === 'late').length;
     const present = attendance.filter(a => a.status === 'present').length;
-    
-    // Absent = totalEmployees - (checkedIn + onLeaveToday)
     const absent = totalEmployees - (checkedIn + onLeaveToday);
 
     res.json({
       date: today,
       summary: {
-        totalEmployees,  // Now only counts employees (no admins)
+        totalEmployees,
         checkedIn,
         present,
         late,
         onLeave: onLeaveToday,
-        absent  // Now correctly calculated
+        absent
       },
       attendance
     });
