@@ -10,7 +10,15 @@ const checkIn = async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
 
-    // ✅ ADDED: Block check-in outside 7:00 AM - 9:00 AM
+    // ✅ Block check-in on weekends
+    const dayOfWeek = new Date().getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return res.status(400).json({ 
+        message: 'Attendance is only recorded on weekdays (Monday - Friday)' 
+      });
+    }
+
+    // ✅ Block check-in outside 7:00 AM - 9:00 AM
     const currentHour = new Date().getHours();
     const currentMinute = new Date().getMinutes();
     if (currentHour < 7 || currentHour >= 9) {
@@ -59,15 +67,21 @@ const checkIn = async (req, res) => {
   }
 };
 
-// @desc    Check Out
-// @route   POST /api/attendance/checkout
 const checkOut = async (req, res) => {
   try {
     const employeeId = req.employee.id;
     const today = new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
 
-    // ✅ ADDED: Block check-out before 5:00 PM
+    // ✅ Block check-out on weekends
+    const dayOfWeek = new Date().getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return res.status(400).json({ 
+        message: 'Attendance is only recorded on weekdays (Monday - Friday)' 
+      });
+    }
+
+    // ✅ Block check-out before 5:00 PM
     const currentHour = new Date().getHours();
     if (currentHour < 17) {
       return res.status(400).json({ 
